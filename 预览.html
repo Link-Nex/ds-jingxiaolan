@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>鲸小蓝 · DS 桌宠预览</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#edf4fa;color:#21344e;font:16px/1.65 system-ui,sans-serif}main{max-width:900px;margin:auto;padding:40px 24px}h1{font-size:30px;margin:0}p{color:#586c83}.stage{position:relative;min-height:390px;background:linear-gradient(145deg,#fff,#dcebf8);border:1px solid #c7d9e9;border-radius:24px;display:grid;place-items:center;overflow:hidden}.pet{width:192px;height:208px;background-image:url('spritesheet.webp');background-size:1536px 2288px;image-rendering:auto}.controls{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0}button{font:inherit;border:1px solid #bacde0;background:#fff;border-radius:12px;padding:7px 14px;color:#294768;cursor:pointer}button[aria-pressed=true]{background:#275bb0;color:#fff;border-color:#275bb0}small{display:block;color:#687d93}.badge{position:absolute;left:20px;top:16px;color:#526d8b;font-size:14px}.dark .stage{background:linear-gradient(140deg,#111b2c,#25374d)}.dark .badge{color:#c0d3e8}
+</style>
+<main>
+<h1>鲸小蓝 <span style="font-size:18px;color:#68839f">· DS</span></h1>
+<p>蓝发鲸尾的小女仆，陪你认真思考，也偷偷惦记下一顿饭。</p>
+<div class="stage" id="stage"><span class="badge" id="label">待机</span><div class="pet" id="pet" role="img" aria-label="鲸小蓝桌宠动画"></div></div>
+<div class="controls" id="states"></div>
+<div class="controls"><button id="gaze" aria-pressed="false">跟随鼠标</button><button id="pause" aria-pressed="false">暂停动画</button><button id="theme" aria-pressed="false">深色背景</button></div>
+<small>此页用于检查动画。安装后在 Codex「设置 → 宠物」选择「鲸小蓝 · DS」。</small>
+<small>DeepSeek 社区同人衍生，非官方角色。形象参考与署名见同目录说明。</small>
+</main>
+<script>
+const states=[['待机',0,[280,110,110,140,140,320]],['向右移动',1,[120,120,120,120,120,120,120,220]],['向左移动',2,[120,120,120,120,120,120,120,220]],['挥手',3,[140,140,140,280]],['跳跃',4,[140,140,140,140,280]],['失落',5,[140,140,140,140,140,140,140,240]],['等待回应',6,[150,150,150,150,150,260]],['思考工作',7,[120,120,120,120,120,220]],['检查成果',8,[150,150,150,150,150,280]]];
+const pet=document.getElementById('pet'),label=document.getElementById('label'),stage=document.getElementById('stage');let current=0,frame=0,timer,gaze=false,paused=false;
+function draw(row,col){pet.style.backgroundPosition=`${-192*col}px ${-208*row}px`}
+function play(){clearTimeout(timer);if(gaze||paused)return;const [name,row,durations]=states[current];draw(row,frame);label.textContent=name;timer=setTimeout(()=>{frame=(frame+1)%durations.length;play()},durations[frame])}
+function select(i){current=i;frame=0;gaze=false;document.getElementById('gaze').setAttribute('aria-pressed','false');document.querySelectorAll('#states button').forEach((b,n)=>b.setAttribute('aria-pressed',n===i));draw(states[i][1],0);label.textContent=states[i][0];play()}
+states.forEach((s,i)=>{const b=document.createElement('button');b.textContent=s[0];b.setAttribute('aria-pressed',i===0);b.onclick=()=>select(i);document.getElementById('states').append(b)});
+document.getElementById('gaze').onclick=function(){gaze=!gaze;this.setAttribute('aria-pressed',gaze);clearTimeout(timer);if(gaze){draw(0,0);label.textContent='在画面内移动鼠标'}else play()};
+stage.addEventListener('pointermove',e=>{if(!gaze||paused)return;const r=pet.getBoundingClientRect(),dx=e.clientX-r.left-r.width/2,dy=e.clientY-r.top-r.height*.4;if(Math.hypot(dx,dy)<30){draw(0,0);label.textContent='正面待机';return}const deg=(Math.atan2(dx,-dy)*180/Math.PI+360)%360,idx=Math.round(deg/22.5)%16;draw(9+Math.floor(idx/8),idx%8);label.textContent='视线 '+(idx*22.5)+'°'});
+document.getElementById('pause').onclick=function(){paused=!paused;this.setAttribute('aria-pressed',paused);this.textContent=paused?'继续动画':'暂停动画';if(paused)clearTimeout(timer);else play()};
+document.getElementById('theme').onclick=function(){const dark=document.body.classList.toggle('dark');this.setAttribute('aria-pressed',dark)};play();
+</script>
+</html>
