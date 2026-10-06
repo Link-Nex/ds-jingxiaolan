@@ -1,0 +1,71 @@
+name: Repack pet once
+
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/repack-pet.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  repack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rebuild and verify sharing package
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          import zipfile
+
+          root = Path('.')
+          readme = root / 'README.md'
+          readme_text = readme.read_text(encoding='utf-8')
+          warning = '注意：当前压缩包已更名，但包内仍为旧版说明和显示名。安装前，请用仓库当前的 `pet.json`、`使用说明.md`、`形象来源与署名.md` 和 `预览.html` 覆盖解压目录内的同名文件；展示图片可更名为 `大肥鱼桌宠.png`。\n\n'
+          assert warning in readme_text
+          readme.write_text(readme_text.replace(warning, ''), encoding='utf-8')
+          manual = root / '使用说明.md'
+          lines = manual.read_text(encoding='utf-8').splitlines()
+          warning_prefix = '2. 当前压缩包仅更名，包内仍为旧版内容。'
+          assert sum(line.startswith(warning_prefix) for line in lines) == 1
+          result = []
+          for line in lines:
+              if line.startswith(warning_prefix):
+                  continue
+              if len(line) > 2 and line[0] in '34567' and line[1:3] == '. ':
+                  line = str(int(line[0]) - 1) + line[1:]
+              result.append(line)
+          manual.write_text('\n'.join(result) + '\n', encoding='utf-8')
+
+          assert json.loads((root / 'pet.json').read_text(encoding='utf-8'))['displayName'] == '大肥鱼 · DS'
+          files = [root / name for name in ['README.md', 'pet.json', 'spritesheet.webp', '使用说明.md', '形象来源与署名.md', '预览.html', '大肥鱼桌宠.png']]
+          files += sorted((root / '动画预览').glob('*.gif'))
+          assert len(files) == 17
+          package = root / '大肥鱼桌宠.zip'
+          with zipfile.ZipFile(package, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
+              for file in files:
+                  assert file.is_file(), file
+                  archive.write(file, 'ds-jingxiaolan/' + file.as_posix())
+          with zipfile.ZipFile(package) as archive:
+              assert archive.testzip() is None
+              assert len(archive.namelist()) == len(files)
+              for file in files:
+                  name = 'ds-jingxiaolan/' + file.as_posix()
+                  assert archive.read(name) == file.read_bytes(), name
+              for file in files:
+                  if file.suffix in ['.md', '.html', '.json']:
+                      assert '鲸小蓝' not in archive.read('ds-jingxiaolan/' + file.as_posix()).decode('utf-8')
+              assert not any('鲸小蓝' in name for name in archive.namelist())
+              print('Verified all 17 package files byte-for-byte; old names absent.')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: refreshed-pet-package
+          path: |
+            大肥鱼桌宠.zip
+            README.md
+            使用说明.md
+          retention-days: 1
